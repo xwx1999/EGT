@@ -30,7 +30,7 @@ pip install egt
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/EGT.git
+git clone https://github.com/xwx1999/EGT.git
 cd EGT
 ```
 
@@ -138,10 +138,10 @@ The configuration file is located at `configs/default_config.yaml` and includes 
 If you use this code in your research, please cite our paper:
 
 ```
-@article{your_paper,
-  title={Integrating Knowledge and Metrics for Improved Animal Quantitative Trait Predictions},
-  author={Your Name and Coauthors},
-  journal={Journal Name},
+@article{wang2024egt,
+  title={Enhanced Genomic Transformer for Animal Quantitative Trait Prediction},
+  author={Wang, Xiwang},
+  journal={arXiv preprint arXiv:2403.xxxxx},
   year={2024}
 }
 ```
@@ -152,6 +152,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 
-- Author: Your Name
-- Email: your.email@example.com
-- Project Link: [https://github.com/yourusername/EGT](https://github.com/yourusername/EGT) 
+- Author: Xiwang Wang
+- Email: xwx1999@gmail.com
+- Project Link: [https://github.com/xwx1999/EGT](https://github.com/xwx1999/EGT) 

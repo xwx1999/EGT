@@ -1,0 +1,47 @@
+# Data Configuration
+data:
+  input_dir: "data/raw"
+  output_dir: "data/processed"
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  batch_size: 32
+  num_workers: 4
+
+# Model Configuration
+model:
+  name: "egt"
+  input_dim: 1000  # SNP feature dimension
+  hidden_dim: 256
+  num_layers: 4
+  num_heads: 8
+  dropout: 0.1
+  activation: "gelu"
+
+# Training Configuration
+training:
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  warmup_steps: 1000
+  gradient_clip: 1.0
+  early_stopping_patience: 10
+  checkpoint_dir: "checkpoints"
+  log_dir: "logs"
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "mse"
+    - "r2"
+    - "pearson"
+    - "spearman"
+  save_predictions: true
+  plot_results: true
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "egt.log" 

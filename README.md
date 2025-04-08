@@ -1,7 +1,6 @@
 # EGT: Enhanced Genomic Transformer for Animal Quantitative Trait Prediction
 
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
-[![PyPI version](https://badge.fury.io/py/egt.svg)](https://badge.fury.io/py/egt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 EGT (Enhanced Genomic Transformer) is a deep learning model for predicting animal quantitative traits. The model combines autoencoders with self-attention mechanisms to effectively process SNP data and improve prediction accuracy.
@@ -138,12 +137,6 @@ The configuration file is located at `configs/default_config.yaml` and includes 
 If you use this code in your research, please cite our paper:
 
 ```
-@article{wang2024egt,
-  title={Enhanced Genomic Transformer for Animal Quantitative Trait Prediction},
-  author={Wang, Xiwang},
-  journal={arXiv preprint arXiv:2403.xxxxx},
-  year={2024}
-}
 ```
 
 ## License
@@ -152,6 +145,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 
-- Author: Xiwang Wang
-- Email: xwx1999@gmail.com
+- Author: Weixi Xiang
+- Email: xiangweixi@hotmail.com
 - Project Link: [https://github.com/xwx1999/EGT](https://github.com/xwx1999/EGT) 

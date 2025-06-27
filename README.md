@@ -23,7 +23,8 @@ EGT/
 ├── configs/              # Configuration files
 │   └── default_config.yaml
 ├── data/                 # Data directory
-│   └── raw/              # Raw datasets (AQT_I, AQT_II, AQT_III)
+│   ├── raw/              # Raw datasets (AQT_I, AQT_II, AQT_III)
+|   └── processed/        # Processed datasets (AQT_I, AQT_II, AQT_III)
 ├── models/               # Model implementations
 │   ├── egt.py            # EGT model
 │   ├── attention.py      # Self-attention module
@@ -108,11 +109,11 @@ The script will first preprocess the raw data, then train the model, and finally
 If you use this code in your research, please consider citing:
 
 ```
-@article{wang2024egt,
+@article{xiang2025egt,
   title={Enhanced Genomic Transformer for Animal Quantitative Trait Prediction},
-  author={Wang, Xiwang},
+  author={Weixi Xiang},
   journal={GitHub repository},
-  year={2024}
+  year={2025}
 }
 ```
 
@@ -122,8 +123,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 
-- Author: Xiwang Wang
-- Email: xwx1999@gmail.com
+- Author: Weixi Xiang
+- Email: xiangweixi@hotmail.com
 - Project Link: [https://github.com/xwx1999/EGT](https://github.com/xwx1999/EGT)
 
 ## Running an Experiment

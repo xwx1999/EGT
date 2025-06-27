@@ -5,6 +5,8 @@ from torch.utils.data import DataLoader
 import numpy as np
 import yaml
 import os
+import argparse
+import wandb
 from models.egt import EGT
 from utils.preprocessing import preprocess_snp_data, create_data_loaders
 from utils.evaluation import evaluate_model, cross_validate
@@ -53,6 +55,8 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, c
                 logging.info(f'Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} '
                            f'({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}')
         
+        avg_train_loss = train_loss / len(train_loader)
+
         # Validation phase
         model.eval()
         val_metrics = evaluate_model(model, val_loader, device)
@@ -60,12 +64,21 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, c
         
         logging.info(f'Validation Epoch: {epoch}\tMSE: {val_mse:.6f}\tR2: {val_metrics["r2"]:.6f}')
         
+        # Log metrics to wandb
+        wandb.log({
+            "epoch": epoch,
+            "train_loss": avg_train_loss,
+            "val_mse": val_mse,
+            "val_r2": val_metrics['r2']
+        })
+
         # Early stopping
         if val_mse < best_val_mse:
             best_val_mse = val_mse
             patience_counter = 0
             # Save best model
-            torch.save(model.state_dict(), os.path.join(config['model']['save_dir'], 'best_model.pt'))
+            model_path = os.path.join(config['model']['save_dir'], config['model']['model_filename'])
+            torch.save(model.state_dict(), model_path)
         else:
             patience_counter += 1
             if patience_counter >= patience:
@@ -73,12 +86,24 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, c
                 break
 
 def main():
+    parser = argparse.ArgumentParser(description="Train EGT model.")
+    parser.add_argument('--config', type=str, default='configs/train_config.yaml',
+                        help="Path to the training configuration file.")
+    args = parser.parse_args()
+
     # Load configuration
-    config = load_config('configs/train_config.yaml')
+    config = load_config(args.config)
     
     # Setup logging
     setup_logging(config['logging']['log_dir'])
     
+    # Initialize wandb
+    wandb.init(
+        project="EGT",
+        config=config,
+        name=f"train-{os.path.basename(args.config).replace('.yaml', '')}"
+    )
+
     # Set random seed for reproducibility
     torch.manual_seed(config['training']['seed'])
     np.random.seed(config['training']['seed'])
@@ -88,10 +113,10 @@ def main():
     logging.info(f'Using device: {device}')
     
     # Load and preprocess data
-    snp_data = np.load(config['data']['snp_data_path'])
-    trait_data = np.load(config['data']['trait_data_path'])
+    snp_data = np.load(config['data']['snp_data_path'], allow_pickle=True)
+    trait_data = np.load(config['data']['trait_data_path'], allow_pickle=True)
     
-    train_snp, test_snp, train_trait, test_trait = preprocess_snp_data(
+    train_snp, test_snp, train_trait, test_trait, _ = preprocess_snp_data(
         snp_data, trait_data,
         train_ratio=config['data']['train_ratio'],
         random_state=config['training']['seed']
@@ -111,6 +136,9 @@ def main():
         dropout=config['model']['dropout']
     ).to(device)
     
+    # Create save directory if it doesn't exist
+    os.makedirs(config['model']['save_dir'], exist_ok=True)
+
     # Define loss function and optimizer
     criterion = nn.MSELoss()
     optimizer = optim.Adam(
@@ -123,22 +151,31 @@ def main():
     train_model(model, train_loader, test_loader, criterion, optimizer, device, config)
     
     # Perform cross-validation
-    cv_results = cross_validate(
-        lambda: EGT(
-            input_dim=config['model']['input_dim'],
-            encoding_dim=config['model']['encoding_dim'],
-            num_heads=config['model']['num_heads'],
-            num_layers=config['model']['num_layers'],
-            dropout=config['model']['dropout']
-        ),
-        train_loader, test_loader, device,
-        num_folds=config['training']['num_folds']
-    )
+    if config['training'].get('cross_validation', False):
+        cv_results = cross_validate(
+            lambda: EGT(
+                input_dim=config['model']['input_dim'],
+                encoding_dim=config['model']['encoding_dim'],
+                num_heads=config['model']['num_heads'],
+                num_layers=config['model']['num_layers'],
+                dropout=config['model']['dropout']
+            ),
+            train_loader, test_loader, device,
+            num_folds=config['training']['num_folds']
+        )
     
-    # Log cross-validation results
-    logging.info('Cross-validation results:')
-    for metric in ['mse', 'r2', 'spearman']:
-        logging.info(f'{metric}: {cv_results[f"{metric}_mean"]:.6f} ± {cv_results[f"{metric}_std"]:.6f}')
+        # Log cross-validation results
+        logging.info('Cross-validation results:')
+        cv_log_data = {}
+        for metric in ['mse', 'r2', 'spearman']:
+            mean_val = cv_results[f"{metric}_mean"]
+            std_val = cv_results[f"{metric}_std"]
+            logging.info(f'{metric}: {mean_val:.6f} ± {std_val:.6f}')
+            cv_log_data[f"cv_{metric}_mean"] = mean_val
+            cv_log_data[f"cv_{metric}_std"] = std_val
+        wandb.log(cv_log_data)
+    
+    wandb.finish()
 
 if __name__ == '__main__':
     main() 

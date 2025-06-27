@@ -1,147 +1,117 @@
 # EGT: Enhanced Genomic Transformer for Animal Quantitative Trait Prediction
 
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
-[![PyPI version](https://badge.fury.io/py/egt.svg)](https://badge.fury.io/py/egt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-EGT (Enhanced Genomic Transformer) is a deep learning model for predicting animal quantitative traits. The model combines autoencoders with self-attention mechanisms to effectively process SNP data and improve prediction accuracy.
+EGT (Enhanced Genomic Transformer) is a deep learning model designed for predicting animal quantitative traits from Single Nucleotide Polymorphism (SNP) data. The model leverages an autoencoder for dimensionality reduction of the genomic data, combined with a Transformer-based architecture to capture complex patterns and improve prediction accuracy.
 
-## Key Features
+This repository contains the full implementation of the EGT model, data preprocessing scripts, and an experiment runner to reproduce results on the provided datasets.
 
-- 🧬 Complete SNP sequence preprocessing pipeline
-- 🔄 Autoencoder-based dimensionality reduction
-- 🧠 Self-attention mechanism for sequence processing
-- 📊 Combined MSE and correlation coefficient loss function
-- 🎯 Multi-trait regression prediction support
-- 📈 Performance comparison with state-of-the-art methods
-- 📊 Rich visualization tools
-- 📝 Comprehensive logging system
-- 💾 Smart checkpoint management
+## Features
 
-## Installation
+- **End-to-End Workflow**: A single script to automate preprocessing, training, and evaluation for different datasets.
+- **Enhanced Transformer Model**: Utilizes an autoencoder for feature extraction followed by a multi-head self-attention Transformer network.
+- **Experiment Tracking**: Integrated with [Weights & Biases](https://wandb.ai/) for seamless logging of metrics, configurations, and results.
+- **Flexible Configuration**: Model architecture, training parameters, and data paths are managed via YAML configuration files.
 
-### Via pip
+## Project Structure
 
-```bash
-pip install egt
+The repository is organized as follows:
+
+```
+EGT/
+├── configs/              # Configuration files
+│   └── default_config.yaml
+├── data/                 # Data directory
+│   └── raw/              # Raw datasets (AQT_I, AQT_II, AQT_III)
+├── models/               # Model implementations
+│   ├── egt.py            # EGT model
+│   ├── attention.py      # Self-attention module
+│   └── autoencoder.py    # Autoencoder module
+├── scripts/              # Standalone scripts
+│   └── preprocess_data.py
+├── utils/                # Utility functions
+│   ├── evaluation.py     # Evaluation metrics
+│   └── preprocessing.py  # Data loading and splitting
+├── evaluate.py           # Evaluation script
+├── run_experiment.py     # Main experiment runner
+├── setup.py              # Installation configuration
+├── train.py              # Training script
+├── requirements.txt      # Project dependencies
+└── README.md
 ```
 
-### From source
+## Getting Started
 
-1. Clone the repository:
+Follow these instructions to set up the environment and run an experiment.
+
+### 1. Installation
+
+First, clone the repository to your local machine:
+
 ```bash
 git clone https://github.com/xwx1999/EGT.git
 cd EGT
 ```
 
-2. Create a virtual environment (recommended):
+Next, it is highly recommended to create a virtual environment to manage dependencies:
+
 ```bash
 python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
+# On Windows
+venv\Scripts\activate
+# On Linux/macOS
+source venv/bin/activate
 ```
 
-3. Install dependencies:
+Install the required Python packages from `requirements.txt`:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Install the package:
+### 2. Weights & Biases Setup
+
+This project uses Weights & Biases (W&B) to log experiment results. You will need a free account.
+
+Log in to W&B from your terminal. You will be prompted to enter your API key.
+
 ```bash
-pip install -e .
+wandb login
 ```
 
-## Project Structure
+### 3. Running an Experiment
 
-```
-EGT/
-├── data/                   # Data directory
-│   ├── raw/               # Raw data
-│   └── processed/         # Processed data
-├── models/                 # Model implementations
-│   ├── egt.py             # EGT model implementation
-│   ├── autoencoder.py     # Autoencoder implementation
-│   └── attention.py       # Attention mechanism
-├── utils/                  # Utility functions
-│   ├── preprocessing.py   # Data preprocessing
-│   ├── evaluation.py      # Evaluation metrics
-│   ├── logger.py          # Logging utilities
-│   ├── checkpoint.py      # Checkpoint management
-│   └── visualization.py   # Visualization tools
-├── configs/               # Configuration files
-│   └── default_config.yaml
-├── tests/                 # Test cases
-├── examples/              # Example code
-├── docs/                  # Documentation
-├── setup.py              # Installation configuration
-├── requirements.txt      # Project dependencies
-└── README.md            # Project documentation
+The entire workflow (data preprocessing, model training, and evaluation) is handled by the `run_experiment.py` script.
+
+To run an experiment for a specific dataset, use the following command:
+
+```bash
+python run_experiment.py --dataset <DATASET_NAME>
 ```
 
-## Quick Start
+Replace `<DATASET_NAME>` with one of the available datasets:
+*   `AQT_I`
+*   `AQT_II`
+*   `AQT_III`
 
-1. Prepare data:
-```python
-from egt.utils.preprocessing import SNPPreprocessor
+For example, to run the complete pipeline for the `AQT_I` dataset:
 
-preprocessor = SNPPreprocessor()
-data = preprocessor.process("data/raw/snp_data.csv")
+```bash
+python run_experiment.py --dataset AQT_I
 ```
 
-2. Train the model:
-```python
-from egt.models import EGT
-from egt.utils.trainer import Trainer
-
-model = EGT(input_dim=1000, hidden_dim=256)
-trainer = Trainer(model)
-trainer.train(data)
-```
-
-3. Evaluate the model:
-```python
-from egt.utils.evaluation import Evaluator
-
-evaluator = Evaluator(model)
-metrics = evaluator.evaluate(test_data)
-```
-
-4. Visualize results:
-```python
-from egt.utils.visualization import Visualizer
-
-visualizer = Visualizer()
-visualizer.plot_training_history(trainer.history)
-visualizer.plot_correlation_matrix(true_values, predicted_values)
-```
-
-## Configuration
-
-The configuration file is located at `configs/default_config.yaml` and includes the following sections:
-
-- Data configuration: data paths, batch sizes, etc.
-- Model configuration: model architecture parameters
-- Training configuration: learning rate, optimizer, etc.
-- Evaluation configuration: evaluation metrics and visualization options
-- Logging configuration: log level and format
-
-## Contributing
-
-1. Fork this repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+The script will first preprocess the raw data, then train the model, and finally evaluate it. All results, including the final performance metrics, will be logged to your W&B dashboard.
 
 ## Citation
 
-If you use this code in your research, please cite our paper:
+If you use this code in your research, please consider citing:
 
 ```
 @article{wang2024egt,
   title={Enhanced Genomic Transformer for Animal Quantitative Trait Prediction},
   author={Wang, Xiwang},
-  journal={arXiv preprint arXiv:2403.xxxxx},
+  journal={GitHub repository},
   year={2024}
 }
 ```
@@ -154,4 +124,44 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Author: Xiwang Wang
 - Email: xwx1999@gmail.com
-- Project Link: [https://github.com/xwx1999/EGT](https://github.com/xwx1999/EGT) 
+- Project Link: [https://github.com/xwx1999/EGT](https://github.com/xwx1999/EGT)
+
+## Running an Experiment
+
+To run a full experiment (preprocessing, training, and evaluation) for a specific dataset, use the `run_experiment.py` script. This script will automate the entire workflow and log results to Weights & Biases.
+
+### Prerequisites
+
+1.  Make sure you have installed all the dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2.  Log in to Weights & Biases. You can do this by running `wandb login` in your terminal and pasting your API key, or by providing the key as an argument to the script.
+
+### Usage
+
+Run the following command from the root of the project:
+
+```bash
+python run_experiment.py --dataset <DATASET_NAME>
+```
+
+Replace `<DATASET_NAME>` with one of the following:
+*   `AQT_I`
+*   `AQT_II`
+*   `AQT_III`
+
+For example, to run the experiment on the `AQT_I` dataset:
+
+```bash
+python run_experiment.py --dataset AQT_I
+```
+
+If you need to provide your `wandb` API key directly, you can use the `--wandb_login_key` argument:
+
+```bash
+python run_experiment.py --dataset AQT_I --wandb_login_key YOUR_API_KEY
+```
+
+After the run is complete, you can view the detailed results, including metrics and plots, on your [wandb dashboard](https://wandb.ai/). 

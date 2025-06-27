@@ -16,30 +16,18 @@ class SNPDataset(Dataset):
     def __getitem__(self, idx):
         return self.snp_data[idx], self.trait_data[idx]
 
-def preprocess_snp_data(snp_data, trait_data, train_ratio=0.7, random_state=42):
+def preprocess_snp_data(snp_data, trait_data, train_ratio=0.8, random_state=42):
     """
-    Preprocess SNP data and split into train/test sets
-    
-    Args:
-        snp_data: numpy array of SNP data
-        trait_data: numpy array of trait data
-        train_ratio: ratio of training data
-        random_state: random seed for reproducibility
-    
-    Returns:
-        train_snp, test_snp, train_trait, test_trait
+    Split SNP and trait data into training and testing sets.
+    Returns the split data and the indices of the test set.
     """
-    # Split data
-    train_snp, test_snp, train_trait, test_trait = train_test_split(
-        snp_data, trait_data, train_size=train_ratio, random_state=random_state
+    indices = np.arange(snp_data.shape[0])
+    
+    train_snp, test_snp, train_trait, test_trait, train_indices, test_indices = train_test_split(
+        snp_data, trait_data, indices, train_size=train_ratio, random_state=random_state
     )
     
-    # Scale SNP data
-    scaler = StandardScaler()
-    train_snp = scaler.fit_transform(train_snp)
-    test_snp = scaler.transform(test_snp)
-    
-    return train_snp, test_snp, train_trait, test_trait
+    return train_snp, test_snp, train_trait, test_trait, test_indices
 
 def create_data_loaders(train_snp, test_snp, train_trait, test_trait, batch_size=32):
     """
@@ -55,6 +43,12 @@ def create_data_loaders(train_snp, test_snp, train_trait, test_trait, batch_size
     Returns:
         train_loader, test_loader
     """
+    # Convert to float to ensure consistency
+    train_snp = train_snp.astype(np.float32)
+    test_snp = test_snp.astype(np.float32)
+    train_trait = train_trait.astype(np.float32)
+    test_trait = test_trait.astype(np.float32)
+
     train_dataset = SNPDataset(train_snp, train_trait)
     test_dataset = SNPDataset(test_snp, test_trait)
     

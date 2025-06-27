@@ -52,4 +52,9 @@ checkpoints/
 
 # Local development settings
 .env
-.env.local 
+.env.local
+
+# Custom ignores
+wandb/
+models/saved/
+configs/temp/

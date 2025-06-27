@@ -60,7 +60,7 @@ class EGT(nn.Module):
         
         # Collect attention maps from each layer
         for layer in self.transformer_layers:
-            x, attn = layer.attention(x, return_attention=True)
+            x, attn = layer(x, return_attention=True)
             attention_maps.append(attn)
             
         return attention_maps 

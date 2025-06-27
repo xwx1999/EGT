@@ -13,7 +13,7 @@ class SelfAttention(nn.Module):
         self.proj = nn.Linear(input_dim, input_dim)
         self.dropout = nn.Dropout(dropout)
         
-    def forward(self, x):
+    def forward(self, x, return_attention=False):
         B, N, C = x.shape
         
         # Generate Q, K, V matrices
@@ -32,6 +32,9 @@ class SelfAttention(nn.Module):
         
         # Project output
         x = self.proj(x)
+        
+        if return_attention:
+            return x, attn
         return x
 
 class MultiHeadAttention(nn.Module):
@@ -41,10 +44,16 @@ class MultiHeadAttention(nn.Module):
         self.norm = nn.LayerNorm(input_dim)
         self.dropout = nn.Dropout(dropout)
         
-    def forward(self, x):
+    def forward(self, x, return_attention=False):
         # Apply attention
-        attn_output = self.attention(x)
+        if return_attention:
+            attn_output, attn = self.attention(x, return_attention=True)
+        else:
+            attn_output = self.attention(x, return_attention=False)
         
         # Add & Norm
         x = self.norm(x + self.dropout(attn_output))
+        
+        if return_attention:
+            return x, attn
         return x 

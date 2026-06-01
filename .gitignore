@@ -1,0 +1,27 @@
+# Ignore all source/reference downloads.
+/sources/
+
+# Keep data directory structure, but do not commit raw or processed data files.
+/data/raw/**
+!/data/raw/
+!/data/raw/.gitkeep
+
+/data/processed/**
+!/data/processed/
+!/data/processed/.gitkeep
+
+# Python caches and local environments.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# OS/editor noise.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

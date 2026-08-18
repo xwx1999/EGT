@@ -128,9 +128,9 @@ def read_plink_ped_prefix(path: Path) -> pd.DataFrame:
     """Read the six metadata columns from a PLINK PED file.
 
     A PLINK PED row starts with family ID, individual ID, sire ID, dam ID, sex,
-    and phenotype, followed by two allele columns per marker. PUFI's PED file is
-    large, so this function extracts only the prefix needed for sample metadata
-    and pedigree-aware processing.
+    and phenotype, followed by two allele columns per marker. This function
+    extracts only the prefix needed for sample metadata and pedigree-aware
+    processing, which avoids loading a very wide PED genotype matrix.
     """
     rows = []
     with path.open("r", encoding="utf-8", errors="ignore") as handle:
@@ -333,12 +333,8 @@ def export_wide_genotypes_by_split(
     return counts
 
 
-def read_pufi_markers(map_path: Path) -> pd.DataFrame:
-    """Read PUFI PLINK MAP marker metadata into named columns.
-
-    The MAP file has no header and follows PLINK's four-column convention:
-    chromosome, marker ID, genetic distance, and base-pair position.
-    """
+def read_plink_markers(map_path: Path) -> pd.DataFrame:
+    """Read a PLINK MAP file into standard marker metadata columns."""
     markers = pd.read_csv(
         map_path,
         sep=r"\s+",
@@ -351,44 +347,44 @@ def read_pufi_markers(map_path: Path) -> pd.DataFrame:
     return markers
 
 
-def export_plink_ped_dosages_by_split(
-    ped_path: Path,
+def export_multiple_plink_ped_dosages_by_split(
+    ped_paths: list[Path],
     marker_ids: list[str],
     split_df: pd.DataFrame,
     out_dir: Path,
 ) -> dict[str, int]:
-    """Convert PUFI PLINK PED alleles to dosage matrices split by dataset split.
+    """Convert multiple PLINK PED files into one split dosage matrix set.
 
-    The raw PED format stores two allele symbols per marker. This function first
-    chooses a dosage allele for each marker, using the least frequent observed
-    allele as the counted allele, writes that coding table, and then streams the
-    PED file again to write 0/1/2 dosage values for train, validation, and test.
+    BloodLipid stores the three pig populations in separate PED files but with
+    identical marker order. Dosage alleles are chosen from pooled allele counts
+    across all included populations so the exported 0/1/2 coding is consistent
+    for every sample.
     """
     allele_counts = [Counter() for _ in marker_ids]
     n_markers = len(marker_ids)
 
-    with ped_path.open("r", encoding="utf-8", errors="ignore") as handle:
-        for line in handle:
-            tokens = line.split()
-            alleles = tokens[6:]
-            if len(alleles) < 2 * n_markers:
-                continue
-            for idx in range(n_markers):
-                a1, a2 = alleles[2 * idx], alleles[2 * idx + 1]
-                if a1 != "0":
-                    allele_counts[idx][a1] += 1
-                if a2 != "0":
-                    allele_counts[idx][a2] += 1
+    for ped_path in ped_paths:
+        with ped_path.open("r", encoding="utf-8", errors="ignore") as handle:
+            for line in handle:
+                tokens = line.split()
+                alleles = tokens[6:]
+                if len(alleles) < 2 * n_markers:
+                    continue
+                for idx in range(n_markers):
+                    a1, a2 = alleles[2 * idx], alleles[2 * idx + 1]
+                    if a1 != "0":
+                        allele_counts[idx][a1] += 1
+                    if a2 != "0":
+                        allele_counts[idx][a2] += 1
 
     coding_rows = []
     alt_alleles = []
     for marker_id, counts in zip(marker_ids, allele_counts):
-        if not counts:
-            alt = ""
-            ordered = []
-        else:
+        if counts:
             ordered = sorted(counts.items(), key=lambda item: (item[1], item[0]))
             alt = ordered[0][0]
+        else:
+            alt = ""
         alt_alleles.append(alt)
         coding_rows.append(
             {
@@ -410,27 +406,28 @@ def export_plink_ped_dosages_by_split(
             writers[label] = csv.writer(handles[label])
             writers[label].writerow(["ID"] + marker_ids)
 
-        with ped_path.open("r", encoding="utf-8", errors="ignore") as handle:
-            for line in handle:
-                tokens = line.split()
-                if len(tokens) < 6:
-                    continue
-                animal_id = normalize_id(tokens[1])
-                label = split_map.get(animal_id)
-                if not label:
-                    continue
-                alleles = tokens[6:]
-                if len(alleles) < 2 * n_markers:
-                    continue
-                row = [animal_id]
-                for idx, alt in enumerate(alt_alleles):
-                    a1, a2 = alleles[2 * idx], alleles[2 * idx + 1]
-                    if not alt or a1 == "0" or a2 == "0":
-                        row.append("")
-                    else:
-                        row.append(str(int(a1 == alt) + int(a2 == alt)))
-                writers[label].writerow(row)
-                counts[label] += 1
+        for ped_path in ped_paths:
+            with ped_path.open("r", encoding="utf-8", errors="ignore") as handle:
+                for line in handle:
+                    tokens = line.split()
+                    if len(tokens) < 6:
+                        continue
+                    animal_id = normalize_id(tokens[1])
+                    label = split_map.get(animal_id)
+                    if not label:
+                        continue
+                    alleles = tokens[6:]
+                    if len(alleles) < 2 * n_markers:
+                        continue
+                    row = [animal_id]
+                    for idx, alt in enumerate(alt_alleles):
+                        a1, a2 = alleles[2 * idx], alleles[2 * idx + 1]
+                        if not alt or a1 == "0" or a2 == "0":
+                            row.append("")
+                        else:
+                            row.append(str(int(a1 == alt) + int(a2 == alt)))
+                    writers[label].writerow(row)
+                    counts[label] += 1
     finally:
         for handle in handles.values():
             handle.close()
@@ -596,107 +593,100 @@ def process_pic(raw_root: Path, out_root: Path, ratio: tuple[float, float, float
     return summary
 
 
-def process_pufi(raw_root: Path, out_root: Path, ratio: tuple[float, float, float], export_genotypes: bool) -> dict:
-    """Preprocess the PUFI dataset and write standardized processed outputs.
+def process_bloodlipid(raw_root: Path, out_root: Path, ratio: tuple[float, float, float], export_genotypes: bool) -> dict:
+    """Preprocess the BloodLipid pig GWAS dataset and write standardized outputs.
 
-    PUFI stores genotypes in PLINK PED/MAP format and phenotypes in two Excel
-    workbooks. The phenotype records include season and parity, so the split is
-    time-based at the animal level: all records from the same animal receive the
-    same split to avoid leakage across train/validation/test.
+    The Dryad 4gh70 dataset contains three populations (DLY, EHL, and Laiwu),
+    each with PLINK PED/MAP genotypes and six blood-lipid phenotypes. The
+    phenotype files include experimental batch, so the animal-level split uses
+    batch as a forward-validation proxy and keeps all traits for an animal in
+    the same train/validation/test partition.
     """
-    raw = raw_root / "PUFI"
-    out = out_root / "PUFI"
+    raw = raw_root / "BloodLipid" / "Primary_data" / "Primary_data" / "GWAS"
+    out = out_root / "BloodLipid"
     out.mkdir(parents=True, exist_ok=True)
 
-    pedigree = read_plink_ped_prefix(raw / "884-individual.ped")
-    genotype_ids = pedigree["ID"].tolist()
-    genotype_id_set = set(genotype_ids)
+    populations = ["DLY", "EHL", "Laiwu"]
+    trait_rename = {"HDL.C": "HDL-C", "LDL.C": "LDL-C"}
+    phenotype_rows = []
+    sample_rows = []
+    ped_paths = []
 
-    p1 = pd.read_excel(raw / "phenotype1_Piglet uniformity.xlsx")
-    p1 = p1.rename(
-        columns={
-            "Animal ID": "ID",
-            "piglet uniformity": "piglet_uniformity",
-        }
-    )
-    p1 = normalize_id_column(p1, "ID")
-    p1["trait"] = "piglet_uniformity"
-    p1["value"] = pd.to_numeric(p1["piglet_uniformity"], errors="coerce")
-    p1 = p1[["ID", "herd", "season", "parity", "czs", "trait", "value"]]
+    for population in populations:
+        pheno_path = raw / f"{population}_60K_phens.txt"
+        ped_path = raw / f"{population}_60K_gens.ped"
+        ped_paths.append(ped_path)
 
-    p2 = pd.read_excel(raw / "phenotype2_Farrowing interval.xlsx")
-    p2 = p2.rename(
-        columns={
-            "Animal ID": "ID",
-            "Farrowing Interval": "farrowing_interval",
-        }
-    )
-    p2 = normalize_id_column(p2, "ID")
-    p2["czs"] = np.nan
-    p2["trait"] = "farrowing_interval"
-    p2["value"] = pd.to_numeric(p2["farrowing_interval"], errors="coerce")
-    p2 = p2[["ID", "herd", "season", "parity", "czs", "trait", "value"]]
+        phenotype = pd.read_csv(pheno_path, sep=r"\s+", na_values=MISSING_VALUES)
+        phenotype = phenotype.rename(columns={"id": "ID", **trait_rename})
+        phenotype["ID"] = phenotype["ID"].map(normalize_id)
+        phenotype["population"] = population
+        phenotype_rows.append(phenotype)
 
-    phenotype = pd.concat([p1, p2], ignore_index=True)
-    for column in ["herd", "season", "parity", "czs", "value"]:
-        phenotype[column] = pd.to_numeric(phenotype[column], errors="coerce")
-    phenotype = phenotype[phenotype["ID"].isin(genotype_id_set)].dropna(subset=["value"]).copy()
+        prefix = read_plink_ped_prefix(ped_path)
+        prefix["population"] = population
+        sample_rows.append(prefix)
+
+    phenotype_wide = pd.concat(phenotype_rows, ignore_index=True)
+    genotype_samples = pd.concat(sample_rows, ignore_index=True)
+    genotype_id_set = set(genotype_samples["ID"])
+
+    phenotype_wide = phenotype_wide[phenotype_wide["ID"].isin(genotype_id_set)].copy()
+    for column in ["batch", "TCHOL", "TG", "HDL-C", "LDL-C", "HDL-C/LDL-C", "AI"]:
+        if column in phenotype_wide.columns:
+            phenotype_wide[column] = pd.to_numeric(phenotype_wide[column], errors="coerce")
 
     entities = (
-        phenotype.groupby("ID", as_index=False)
-        .agg(split_key_season=("season", "min"), split_key_parity=("parity", "min"))
-        .merge(pedigree[["ID", "SIRE", "DAM"]], on="ID", how="left")
+        phenotype_wide[["ID", "population", "batch"]]
+        .drop_duplicates("ID")
+        .rename(columns={"batch": "split_key_batch"})
     )
-    pedigree_for_generation = pedigree[["ID", "SIRE", "DAM"]].copy()
-    pedigree_for_generation = compute_pedigree_generation(pedigree_for_generation)
-    entities = entities.merge(pedigree_for_generation[["ID", "generation"]], on="ID", how="left")
+    split_parts = []
+    for population, group in entities.groupby("population", sort=True):
+        group_split, _ = select_forward_split(group, "ID", ratio, time_cols=["split_key_batch"])
+        group_split["split_method"] = "population_batch"
+        split_parts.append(group_split)
+    split_df = pd.concat(split_parts, ignore_index=True)
+    method = "population_batch"
 
-    split_df, method = select_forward_split(
-        entities,
-        "ID",
-        ratio,
-        time_cols=["split_key_season", "split_key_parity"],
-        pedigree_col="generation",
+    phenotype_split = add_split(phenotype_wide, split_df)
+    write_csv(phenotype_split, out / "phenotype_wide.csv")
+
+    trait_cols = ["TCHOL", "TG", "HDL-C", "LDL-C", "HDL-C/LDL-C", "AI"]
+    labels_long = melt_labels(
+        phenotype_split,
+        ["ID", "population", "sex", "batch", "split", "forward_order", "split_method"],
+        trait_cols,
+        "trait",
+        "value",
     )
+    write_csv(labels_long, out / "labels_long.csv")
 
-    phenotype_split = add_split(phenotype, split_df)
-    write_csv(phenotype_split, out / "phenotypes_long.csv")
-
-    pedigree_split = pedigree.merge(
-        pedigree_for_generation[["ID", "generation"]],
-        on="ID",
-        how="left",
-    ).merge(split_df[["ID", "split", "forward_order"]], on="ID", how="left")
-    write_csv(pedigree_split, out / "pedigree.csv")
-
-    markers = read_pufi_markers(raw / "884-individual.map")
-    write_csv(markers, out / "markers.csv")
-
-    samples = pedigree[["FID", "ID", "SIRE", "DAM", "SEX", "PED_PHENOTYPE"]].merge(
-        split_df[["ID", "split", "forward_order", "split_method"]],
-        on="ID",
-        how="left",
-    )
+    samples = genotype_samples.merge(split_df[["ID", "split", "forward_order", "split_method"]], on="ID", how="left")
     write_csv(samples, out / "genotype_samples.csv")
     write_csv(split_df, out / "splits.csv")
 
+    markers = read_plink_markers(raw / "DLY_60K_gens.map")
+    write_csv(markers, out / "markers.csv")
+
     exported_counts = None
     if export_genotypes:
-        exported_counts = export_plink_ped_dosages_by_split(
-            raw / "884-individual.ped",
+        exported_counts = export_multiple_plink_ped_dosages_by_split(
+            ped_paths,
             markers["marker_id"].astype(str).tolist(),
             split_df,
             out,
         )
 
     summary = {
-        "dataset": "PUFI",
+        "dataset": "BloodLipid",
         "split_method": method,
         "split_ratio": list(ratio),
-        "n_genotype_samples": len(genotype_ids),
-        "n_phenotype_records": int(len(phenotype)),
-        "n_phenotype_animals": int(phenotype["ID"].nunique()),
+        "populations": populations,
+        "n_genotype_samples": int(genotype_samples["ID"].nunique()),
+        "n_phenotype_samples": int(phenotype_wide["ID"].nunique()),
         "n_markers": int(len(markers)),
+        "n_traits": len(trait_cols),
         "split_counts": split_summary(split_df),
         "exported_genotype_counts": exported_counts,
     }
@@ -708,13 +698,18 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for raw paths, output paths, datasets, and ratio."""
     parser = argparse.ArgumentParser(
         description=(
-            "Preprocess HZA, PIC, and PUFI raw pig datasets and create 7:1:2 "
+            "Preprocess HZA, PIC, and BloodLipid raw pig datasets and create 7:1:2 "
             "forward train/valid/test splits."
         )
     )
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
     parser.add_argument("--out-dir", type=Path, default=Path("data/processed"))
-    parser.add_argument("--datasets", nargs="+", default=["HZA", "PIC", "PUFI"], choices=["HZA", "PIC", "PUFI"])
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        default=["HZA", "PIC", "BloodLipid"],
+        choices=["HZA", "PIC", "BloodLipid"],
+    )
     parser.add_argument("--ratio", nargs=3, type=float, default=(7.0, 1.0, 2.0), metavar=("TRAIN", "VALID", "TEST"))
     parser.add_argument(
         "--export-genotypes",
@@ -731,7 +726,7 @@ def main() -> None:
     processors = {
         "HZA": process_hza,
         "PIC": process_pic,
-        "PUFI": process_pufi,
+        "BloodLipid": process_bloodlipid,
     }
 
     summaries = []

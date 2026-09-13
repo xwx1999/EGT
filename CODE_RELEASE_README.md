@@ -39,7 +39,27 @@ python src/run_all_trait_egt.py --data-root EGT_model_inputs_v1 --output-root re
 | `src/explain_egt.py` | Loads a single-trait checkpoint and produces integrated-gradient SNP importance, aggregated genomic-window importance, and masking-validation results. |
 | `src/baselines.py` | Shared data-loading, imputation, standardization, and metric utilities used by `egt.py`. |
 | `src/preprocess.py` | Rebuilds the processed inputs and forward-validation splits from the original source datasets; it is not needed when using the released input archive. |
+| `src/preprocess_pigheat.py` | Builds the PigHeaT inputs from the public deposit: parses the released genotype and phenotype tables, restricts to autosomal markers (SSC1-SSC18), de-duplicates markers, applies the marker quality-control mask (call rate >= 0.95 and MAF >= 0.01), and constructs the birth-year forward split (2013 training/validation, 2014 test). **Added in this revision**; it was absent from earlier code packages. |
 | `src/run_all_trait_egt.py` | Batch runner for the manuscript's single-trait and multi-task experiments over all three datasets. Use `--data-root` to point it to the extracted released inputs. |
+
+## Revision analysis scripts
+
+`scripts/` contains the analyses added for the reviewer revision. They are not
+required to reproduce the original benchmark, but they regenerate every table and
+figure the revision adds, and each writes machine-readable output.
+
+| File | Role |
+| --- | --- |
+| `scripts/animals_round1.py` | The revision benchmark protocol: 87 validation-only selection runs, then 435 repeat runs (5 seeds x 3 datasets x 12 traits x 8 models), producing `selection_lock.json`, `repeat_metrics_*.csv` and the per-run cost records. |
+| `scripts/regenerate_round1_summary.py` | Rebuilds the summary layer (mean/SD per cell, cost table, benchmark status) from the per-run records, validating completeness first. |
+| `scripts/paired_bootstrap_ci.py` | Paired bootstrap confidence intervals (B = 10,000) for the EGT-versus-baseline difference in PCC, bias and regression slope, resampling both test animals and replicate seeds. |
+| `scripts/dependent_correlation_test.py` | Williams' test for dependent correlations, the formal alternative to the bootstrap for comparing two correlations that share the phenotype. |
+| `scripts/masking_repeats_and_controls.py` | Repeated random masking with confidence intervals plus a size-matched control and locus-scale positive controls; runs against either the original or the PC-corrected checkpoints. |
+| `scripts/ssc13_local_ld.py` | Local linkage disequilibrium and allele frequency around MARC0013088 in the pooled cohort and per breed. |
+| `scripts/ssc13_structure_test.py` | Principal component analysis of the pooled genotypes and the association of the candidate marker with the leading components. |
+| `scripts/ssc13_qtldb_query.py` | Extracts the SSC13 records from the Animal QTLdb legacy deposition. |
+| `scripts/yang2015_ssc13_loci.py` | Extracts the SSC13 loci from the supplementary tables of the published GWAS on the same animals. |
+| `scripts/audit_response_coverage.py` | Checks that every reviewer comment has a response and flags any still written as a future promise. |
 
 ## Interpretability outputs
 
